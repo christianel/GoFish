@@ -150,6 +150,9 @@ class ParamRun:
     # Output from bias calculation
     fshr_bias=[]
     fshr_bias_l=[]
+    fshr_l_bias=[]
+    fshr_cls_bias=[]
+    ifshr_cls_bias=[]
 
     def __init__(self,fname) :
         #Read parameter file
@@ -252,7 +255,10 @@ class ParamRun:
 
         # Christiane 
         self.fshr_bias=np.zeros([self.npar_vary])
-        self.fshr_bias_l=np.zeros([self.npar_vary,self.lmax+1])       
+        self.fshr_bias_l=np.zeros([self.npar_vary,self.lmax+1])
+        self.fshr_l_bias=np.zeros([self.npar_vary,self.npar_vary,self.lmax+1])
+        self.fshr_cls_bias=np.zeros([self.npar_vary,self.npar_vary])
+        self.ifshr_cls_bias=np.zeros([self.npar_vary,self.npar_vary])       
 
         self.print_params()
 
@@ -879,9 +885,15 @@ class ParamRun:
                     for i in np.arange(self.npar_vary) :
                         dcl1=self.dcl_arr[i,lb,indices,:][:,indices]
                         self.fshr_bias_l[i,l]=self.fsky*(ell+0.5)*np.trace(np.dot(dcl1,np.dot(icl,np.dot((cl_fid-cl_mod),icl))))
-              
-            self.fshr_bias[:]=np.sum(self.fshr_bias_l,axis=1)
-
+                        for j in np.arange(self.npar_vary-i)+i :
+                            dcl2=self.dcl_arr[j,lb,indices,:][:,indices]
+                            self.fshr_l_bias[i,j,l]=self.fsky*(ell+0.5)*np.trace(np.dot(dcl1,np.dot(icl,np.dot(dcl2,icl))))
+                            if i!=j :
+                                self.fshr_l_bias[j,i,l]=self.fshr_l_bias[i,j,l]
+            
+            self.fshr_cls_bias[:,:]=np.sum(self.fshr_l_bias,axis=2)
+            self.ifshr_cls_bias[:,:]=np.linalg.inv(self.fshr_cls_bias)
+            self.fshr_bias[:]=-np.dot(self.ifshr_cls_bias,np.sum(self.fshr_bias_l,axis=1))
 
     def plot_fisher(self) :
         covar=np.linalg.inv(self.fshr)
